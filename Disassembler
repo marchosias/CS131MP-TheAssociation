@@ -1,0 +1,46 @@
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+
+public class Disassembler {
+	static String asm, ccode, forprint;
+	static int ctr = 0;
+	public static void main(String[] args) throws IOException, ClassNotFoundException {
+		try{
+			ccode = "#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n";
+			BufferedReader reader = new BufferedReader(new FileReader("sample.asm"));
+			FileWriter writer = new FileWriter("sample.c");
+			asm = reader.readLine();
+			while(asm != null){
+				if(asm.contains("main proc")||asm.contains("main	proc")){
+					ccode += "main(){\n";
+					asm = reader.readLine();
+				}
+				if(asm.contains("mov dl,'")||asm.contains("mov dl, '")){
+					forprint = asm.substring(asm.indexOf("'")+1);
+					forprint = forprint.substring(0,forprint.indexOf("'"));
+					asm = reader.readLine();
+					if(asm.contains("mov ah, 02h")||asm.contains("mov ah, 02")||asm.contains("mov ah, 2")){
+						asm = reader.readLine();
+						if(asm.contains("int 21h")){
+							ccode += "print(" + '"' + forprint + '"' + ");\n";
+						}
+					}
+					asm = reader.readLine();
+				}
+				if(asm.contains("end main")){
+					ccode += "}";
+					asm = null;
+				}
+				asm = reader.readLine();
+			}
+			writer.write(ccode);
+			writer.close();
+			}catch(FileNotFoundException e){
+				asm = new String();
+			}
+		
+	}
+}
