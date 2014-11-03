@@ -1,0 +1,208 @@
+/**
+ * Disassembler v4.0
+ * @author AD
+ * Adapted from Nathan and Jesh's code
+ * Updates:
+ * - Added support for inc
+ * - Loops (Medyo brute force pa sa while and do while)
+ */
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+
+public class Disassembler {
+	static String asm, cCode, forPrint, var, val, type, valueProper, loop, loop2, loopName, counter;
+	static boolean isString = false, isWhile = false;
+	static int ctr = 0, stringLength;
+	
+	public static String fixVar(String var){ //removes tab at the beginning of variable declaration
+		int i = 0;
+		String fixed = "";
+		char tmp = var.charAt(i);
+		int varLength = var.length();
+		for(i = 0; i < varLength; i++)
+		{
+			if(var.charAt(i)!='	')
+				fixed = fixed + var.charAt(i);
+		}
+		return fixed;
+	}
+	
+	public static void main(String[] args) throws IOException, ClassNotFoundException {
+		try{
+			cCode = "#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n";
+			BufferedReader reader = new BufferedReader(new FileReader("sample.asm"));
+			FileWriter writer = new FileWriter("sample.c");
+			asm = reader.readLine();
+			while(asm != null){
+				 if(asm.contains(".data")){
+					 asm = reader.readLine();
+					 while(!asm.contains(".stack")){ //naghahanap lang sya ng variables inside .data. Pag naencounter na yung .stack stop na ituuu
+						 if(asm.contains("db")||asm.contains("dw")||asm.contains("dd")){
+							 var = asm.substring(asm.indexOf(0)+1);
+							 var = fixVar(var);
+							 type = "int";
+							 if(asm.contains("db")){
+								 var = var.substring(0,var.indexOf(" db"));
+								 val = asm.substring(asm.indexOf(" db")+4);
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								 if(valueProper.contains("'")){
+									    if(valueProper.contains("'$'")){
+										valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+									    }else{
+									    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+									    }
+									    if(valueProper.length() == 0){
+											type = "char";
+											
+										}else{
+											type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+										}
+								 }
+								 
+							 }else if(asm.contains("dw")){
+								 var = var.substring(0,var.indexOf(" dw"));
+								 val = asm.substring(asm.indexOf(" dw")+4);
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								if(valueProper.contains("'")){
+									 	if(valueProper.contains("'$'")){
+											valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+										    }else{
+										    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+										    }
+										if(valueProper.length() == 0){
+											type = "char";
+									
+										}else{
+											type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+										}
+								 }
+								 
+							 }else if(asm.contains("dd")){
+								 var = var.substring(0,var.indexOf(" dd"));
+								 val = asm.substring(asm.indexOf(" dd")+4);		
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								 if(valueProper.contains("'")){
+									 if(valueProper.contains("'$'")){
+											valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+										    }else{
+										    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+										    }
+										if(valueProper.length() == 0){
+											type = "char";
+											
+										}else{
+											type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+										}
+								 }
+							 }
+						 }
+						 
+						 if(isString){
+							 cCode += type + " " + var + "[" + stringLength + "]" + " = '" + val + "';\n";
+						 }else{
+							 cCode += type + " " + var + " = " + val + ";\n"; 
+						 }
+						asm = reader.readLine();
+					 }					 
+				}else if(asm.contains("main proc")||asm.contains("main	proc")){
+					cCode += "main(){\n\n";
+					//asm = reader.readLine();
+				}else if(asm.contains("do:")){
+					cCode += "do{\n";
+					//asm = reader.readLine();
+				}else if(asm.contains("inc")){
+					cCode += asm.substring(asm.indexOf("c")+2) + "++;\n";
+					//asm = reader.readLine();
+				}else if(asm.contains("endDo:")){
+					asm = reader.readLine();
+					if(asm.contains("cmp")){
+						counter = asm.substring(asm.indexOf(",")+1, asm.length());						
+					}
+					asm = reader.readLine();
+					if(asm.contains("jle")){
+						cCode += "}while(ctr <=" + counter + " );\n";
+					}	
+					//asm = reader.readLine();
+				}else if(asm.contains("while:")){
+					cCode += "while(";
+					reader.mark(0);
+					while(!asm.contains("cmp")){
+						asm = reader.readLine();
+					}
+					loop = asm;
+					loop2 = reader.readLine();
+					if(loop2.contains("jle")){
+						cCode += "ctr <=";
+						cCode += loop.substring(loop.indexOf(",")+1, loop.length());
+						cCode += "){\n";
+					}
+					reader.reset();		
+					isWhile = true;
+				}else if(isWhile && asm.contains("cmp")){
+					isWhile = false;
+					cCode += "}\n";
+				}else if(asm.contains("mov dl,'")||asm.contains("mov dl, '")){
+					forPrint = asm.substring(asm.indexOf("'")+1);
+					forPrint = forPrint.substring(0,forPrint.indexOf("'"));
+					asm = reader.readLine();
+					if(asm.contains("mov ah, 02h")||asm.contains("mov ah, 02")||asm.contains("mov ah, 2")){
+						asm = reader.readLine();
+						if(asm.contains("int 21h")){
+							cCode += "printf(" + '"' + forPrint + '"' + ");\n";
+						}
+					}
+					//asm = reader.readLine();
+				}
+				else if(asm.contains("mov dl, ") || asm.contains("mov dl,")){
+					forPrint = asm.substring(asm.indexOf(var)+1);
+					int length = forPrint.length();
+					forPrint = forPrint.substring(forPrint.indexOf(",")+1,length);
+					char temp = forPrint.charAt(0);
+					length = forPrint.length();
+					if(temp == ' ')
+							forPrint = forPrint.substring(forPrint.indexOf(" ")+1, length); 
+					asm = reader.readLine();
+					if(asm.contains("mov bl, 09h") || asm.contains("mov bl, 09") || asm.contains("mov bl, 9")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 02h")||asm.contains("mov ah, 02")||asm.contains("mov ah, 2")){
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%d" + '"' + "," + var + ");\n";
+							}
+						}
+					}
+					//asm = reader.readLine();					
+				}else if(asm.contains("end main")){
+					cCode += "\n}";
+					asm = null;
+				}				
+				asm = reader.readLine();
+			}
+			writer.write(cCode);
+			writer.close();
+			}catch(FileNotFoundException e){
+				System.err.println("File unavailable.");
+				asm = new String();
+			}
+		System.out.println(cCode);
+	}
+}
