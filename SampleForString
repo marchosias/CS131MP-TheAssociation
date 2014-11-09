@@ -1,0 +1,22 @@
+title Hello World
+;@author: Jeshurun C. Orquina
+
+.model small
+.data
+	message db "Hello World", '$'
+.stack 100h
+.code
+	main	proc
+	
+	mov ax, @data ;initializes segment registers
+	mov ds, ax    ;DS and ES
+	
+	lea dx, message 
+	mov ah, 09h
+	int 21h
+	
+	mov ax, 4c00h ;return 0
+	int 21h       ;return 0
+	
+	main endp     ;}
+	end main
