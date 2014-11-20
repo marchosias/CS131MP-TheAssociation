@@ -1,0 +1,457 @@
+/** Disassembler v8.0a
+ * @author Adriel Arevalo
+ * Updates:
+ * Variable Declaration in C to Assembly
+ * Printf (including cases with mixed variables and strings)
+ */
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Scanner;
+import java.util.StringTokenizer;
+
+public class Disassembler {
+	static String asm, cCode, cFile, asmCodeFull, asmData, asmStack, asmCode, asmMainStart, asmMainContent, asmMainEnd, forPrint, var, val, 
+	type, valueProper, loop, loop2, loopName, counter, cond1, cond2, comparator, cComparator, cComparator2, ifname, elsename, loopname, endloopname = " ", printChar, varName;
+	static boolean isString = false, isWhile = false, isDo = false, ifBool = false, elseBool = false, elseFinisher = false, isLoop = false;
+	static int ctr = 0, stringLength, undeclared = 0, c = 0, d = 0, s = 0;
+	
+	public static void cToAssembly() throws IOException, ClassNotFoundException{
+		try{
+			asmCodeFull = ".model small\n";
+			asmData = ".data\n";
+			asmStack = ".stack 100h\n";
+			asmCode = ".code\n";
+			asmMainStart = "main proc\nmov ax, @data\nmov ds, ax\n;start\n";
+			asmMainEnd = ";end\nmov ax, 4c00h\nint 21h\nmain endp\nend main\n";
+			asmMainContent = ""; //Dito mapupunta yung code na assembly
+			BufferedReader reader = new BufferedReader(new FileReader("toAssembly.c"));
+			FileWriter writer = new FileWriter("assemblyFromC.asm");
+			cFile = reader.readLine();
+			while(cFile != null){
+				if(cFile.contains("int") && !cFile.contains("printf")){
+					asmData += cFile.substring(cFile.indexOf("int")+4, cFile.indexOf("=")-1) + " db " + cFile.substring(cFile.indexOf("=")+2, cFile.indexOf(";")) + "\n";
+				}else if(cFile.contains("char") && cFile.contains("[") && cFile.contains("]")){
+					asmData += cFile.substring(cFile.indexOf("char")+5, cFile.indexOf("[")) + " db '" + cFile.substring(cFile.indexOf("\"")+1, cFile.indexOf(";")-1) + "','$'" + "\n";
+				}else if(cFile.contains("char")){
+					asmData += cFile.substring(cFile.indexOf("char")+5, cFile.indexOf("=")-1) + " db " + cFile.substring(cFile.indexOf("=")+2, cFile.indexOf(";")) + "\n";
+				}else if(cFile.contains("printf")){
+					printChar = cFile.substring(cFile.indexOf("(")+2, cFile.indexOf(")")-1);
+					if(printChar.length() > 1 && (!cFile.contains("%d") && !cFile.contains("%c") && !cFile.contains("%s")) ){
+						asmData += "message" + undeclared +  " db '" + printChar + "', '$'\n";
+						asmMainContent += "mov dx, offset message" + undeclared + "\n";
+						asmMainContent += "mov ah, 09h\n";
+						asmMainContent += "int 21h\n";
+						undeclared++;
+					}else if(printChar.length() == 1){
+						asmMainContent += "mov dl, '" + printChar + "'\n";
+						asmMainContent += "mov ah, 02h\n";
+						asmMainContent += "int 21h\n";
+					}else if(cFile.contains("%d") || cFile.contains("%c") || cFile.contains("%s")){
+						printChar = cFile.substring(cFile.indexOf("\"")+1, cFile.indexOf(",")- 1);
+						varName = cFile.substring(cFile.indexOf(","), cFile.indexOf(")"));						
+						
+						String print = "";
+						StringTokenizer token = new StringTokenizer(varName, ", ");
+						int x = 0;
+						while(x < printChar.length()){
+							if(printChar.charAt(x) != '%'){
+								print += printChar.charAt(x);
+								x++;
+							}else{
+								if(print != ""){
+								asmData += "message" + undeclared +  " db '" + print + "', '$'\n";
+								asmMainContent += "mov dx, offset message" + undeclared + "\n";
+								asmMainContent += "mov ah, 09h\n";
+								asmMainContent += "int 21h\n";
+								undeclared++;
+								print = "";
+								}
+								if(printChar.charAt(x+1) == 'd'){
+									String var1 = token.nextToken();
+									asmMainContent += "add " + var1 + ", 48\n";
+									asmMainContent += "mov dl, " + var1 + "\n";
+									asmMainContent += "mov ah, 02h\n";
+									asmMainContent += "int 21h\n";
+									x = x+2;
+								}else if(printChar.charAt(x+1) == 's'){
+									String var1 = token.nextToken();
+									asmMainContent += "mov dx, offset " + var1 + "\n";
+									asmMainContent += "mov ah, 09h\n";
+									asmMainContent += "int 21h\n";
+									x = x+2;
+								}else if(printChar.charAt(x+1) == 'c'){
+									String var1 = token.nextToken();
+									asmMainContent += "mov dl, " + var1 + "\n";
+									asmMainContent += "mov ah, 02h\n";
+									asmMainContent += "int 21h\n";
+									x = x+2;
+								}
+							}
+						}
+						if(print != ""){
+							asmData += "message" + undeclared +  " db '" + print + "', '$'\n";
+							asmMainContent += "mov dx, offset message" + undeclared + "\n";
+							asmMainContent += "mov ah, 09h\n";
+							asmMainContent += "int 21h\n";
+							undeclared++;
+							print = "";
+						}
+						
+					}
+					
+				}
+				
+				
+				
+				cFile = reader.readLine();
+			}
+			
+			writer.write(asmCodeFull);
+			writer.write(asmData);
+			writer.write(asmStack);
+			writer.write(asmCode);
+			writer.write(asmMainStart);
+			writer.write(asmMainContent);
+			writer.write(asmMainEnd);
+			writer.close();
+			System.out.println("File converted successfully!");
+			
+		}catch(FileNotFoundException e){
+			System.err.println("File Not Found!");
+		}
+	}
+	
+	public static void assemblyToC()  throws IOException, ClassNotFoundException{
+		try{
+			cCode = "#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n";
+			BufferedReader reader = new BufferedReader(new FileReader("sample.asm"));
+			FileWriter writer = new FileWriter("sample.c");
+			asm = reader.readLine();
+			while(asm != null){
+				 if(asm.contains(".data")){
+					 asm = reader.readLine();
+					 while(!asm.contains(".stack")){ //naghahanap lang sya ng variables inside .data. Pag naencounter na yung .stack stop na ituuu
+						 if(asm.contains("db")||asm.contains("dw")||asm.contains("dd")){
+							 var = asm.substring(asm.indexOf(0)+1);
+							 var = fixVar(var);
+							 type = "int";
+							 if(asm.contains("db")){
+								 var = var.substring(0,var.indexOf(" db"));
+								 val = asm.substring(asm.indexOf(" db")+4);
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								 if(valueProper.contains("'")){
+									 	if(valueProper.startsWith("\""))
+									 	{
+									 		type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+									 	}
+									 	else if(valueProper.contains("'$'")){
+										valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+									    }else{
+									    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+									    }
+									    if(valueProper.length() == 0){
+											type = "char";
+								 }}
+								 
+								 
+							 }else if(asm.contains("dw")){
+								 var = var.substring(0,var.indexOf(" dw"));
+								 val = asm.substring(asm.indexOf(" dw")+4);
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								 if(valueProper.contains("'")){
+									 	if(valueProper.contains("'$'")){
+											valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+										    }else{
+										    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+										    }
+										if(valueProper.length() == 0){
+											type = "char";
+									
+										}else{
+											type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+										}
+								 }
+								 
+							 }else if(asm.contains("dd")){
+								 var = var.substring(0,var.indexOf(" dd"));
+								 val = asm.substring(asm.indexOf(" dd")+4);		
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								 if(valueProper.contains("'")){
+									 if(valueProper.contains("'$'")){
+											valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+										    }else{
+										    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+										    }
+										if(valueProper.length() == 0){
+											type = "char";
+											
+										}else{
+											type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+										}
+								 }
+							 }
+						 }
+						 
+						 if(isString){
+							 val = val.substring(val.indexOf("\""), (val.indexOf(",")-1));
+							 stringLength = val.length();
+							 cCode += type + " " + var + "[" + stringLength + "]" + " = " + val + "\";\n";
+						 }else{
+							 cCode += type + " " + var + " = " + val + ";\n"; 
+						 }
+						asm = reader.readLine();
+					 }					 
+				}else if(asm.contains("main proc")||asm.contains("main	proc")){
+					cCode += "main(){\n\n";
+					//asm = reader.readLine();
+				}else if(asm.contains("inc")){
+					cCode += asm.substring(asm.indexOf("c")+2) + "++;\n";
+					//asm = reader.readLine();
+				}else if(asm.contains(":") && !ifBool && !elseBool && !asm.contains(";@")){
+					loopname = fixVar(asm.substring(0, asm.indexOf(":")));
+					if(loopname.compareToIgnoreCase(endloopname) != 0){
+					reader.mark(0);
+					while(!asm.contains("cmp")){
+						asm = reader.readLine();
+					}
+					cond1 = asm.substring(asm.indexOf(" ", 3)+1, asm.indexOf(","));
+					cond2 = asm.substring(asm.indexOf(",")+2);
+					loop = reader.readLine();
+					if(loop.contains("je")||loop.contains("jg")||loop.contains("jl")||loop.contains("jle")||loop.contains("jge")){
+						comparator = loop.substring(0, loop.indexOf(" "));
+						comparator = fixVar(comparator);
+						if(comparator.compareToIgnoreCase("je") == 0){
+							cComparator = " == ";
+						}else if(comparator.compareToIgnoreCase("jl") == 0){
+							cComparator = " > ";
+							cComparator2 = " < ";
+						}else if(comparator.compareToIgnoreCase("jg") == 0){
+							cComparator = " < ";
+							cComparator2 = " > ";
+						}else if(comparator.compareToIgnoreCase("jge") == 0){
+							cComparator = " <= ";
+							cComparator2 = " >= ";
+						}else if(comparator.compareToIgnoreCase("jle") == 0){
+							cComparator = " >= ";
+							cComparator2 = " <= ";
+						}
+						
+						if(loop.substring(loop.indexOf(" ")+1).compareTo(loopname) == 0){
+							cCode += "do{\n";
+							isDo = true;
+						}
+					}
+					isLoop = true;
+					while(!asm.contains("jmp")){
+						asm = reader.readLine();
+					}
+					if(asm.contains(loopname)){
+						cCode += "while(" + cond1 + cComparator + cond2 +"){\n";
+						isWhile = true;
+						asm = reader.readLine();
+						asm = fixVar(asm);
+						endloopname = asm.substring(0, asm.indexOf(":"));
+					}
+					reader.reset();
+					}
+				}else if(asm.contains("cmp")){
+					if(isLoop && isDo){
+						cCode += "}while(" + cond1 + cComparator2 + cond2 + ");\n";
+						isLoop = false;
+						isDo = false;
+					}else{
+					cond1 = asm.substring(asm.indexOf(" ", 3)+1, asm.indexOf(","));
+					cond2 = asm.substring(asm.indexOf(",")+2);
+					reader.mark(0);
+					loop = reader.readLine();
+					ifname = loop.substring(loop.indexOf(" ")+1);
+					if(ifname.compareToIgnoreCase(endloopname) != 0){
+					if(loop.contains("je")||loop.contains("jg")||loop.contains("jl")||loop.contains("jle")||loop.contains("jge")){
+						comparator = loop.substring(0, loop.indexOf(" "));
+						comparator = fixVar(comparator);
+						if(comparator.compareToIgnoreCase("je") == 0){
+							cComparator = " == ";
+						}else if(comparator.compareToIgnoreCase("jg") == 0){
+							cComparator = " > ";
+						}else if(comparator.compareToIgnoreCase("jl") == 0){
+							cComparator = " < ";
+						}else if(comparator.compareToIgnoreCase("jle") == 0){
+							cComparator = " <= ";
+						}else if(comparator.compareToIgnoreCase("jge") == 0){
+							cComparator = " >= ";
+						}
+						
+						ifBool = true;
+					}
+					loop2 = reader.readLine();
+					if(loop2.contains("jmp")){
+						elsename = loop2.substring(loop2.indexOf(" ")+1);
+						elseBool = true;
+					}
+					}
+					reader.reset();
+					}
+				}else if(ifBool && elseBool && asm.contains(":")){
+					if(asm.contains(ifname)){
+						cCode += "if(" + cond1 + cComparator + cond2 + "){\n";
+						ifBool = false;
+					}
+				}else if(elseBool && asm.contains(":")){
+					if(asm.contains(elsename)){
+						cCode += "}else{\n";
+						elseBool = false;
+						elseFinisher = true;
+					}
+				}
+				else if(asm.contains("lea dx")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 09h") || asm.contains("mov ah, 09") || asm.contains("mov ah, 9"))
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%s" + '"' + "," + var + ");\n";
+							}
+						
+					}
+				else if(asm.contains("mov dl,'")||asm.contains("mov dl, '")){
+					forPrint = asm.substring(asm.indexOf("'")+1);
+					forPrint = forPrint.substring(0,forPrint.indexOf("'"));
+					asm = reader.readLine();
+					if(asm.contains("mov ah, 02h")||asm.contains("mov ah, 02")||asm.contains("mov ah, 2")){
+						asm = reader.readLine();
+						if(asm.contains("int 21h")){
+							cCode += "printf(" + '"' + forPrint + '"' + ");\n";
+						}
+					}
+					if(asm.contains("lea dx")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 09h") || asm.contains("mov ah, 09") || asm.contains("mov ah, 9"))
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%d" + '"' + "," + var + ");\n";
+							}
+						
+					}
+				if(elseFinisher){
+					cCode += "}\n";
+					elseFinisher = false;
+				}else
+				if(isLoop && isWhile){
+					cCode += "}\n";
+					isLoop = false;
+					isWhile = false;
+				}else
+				if(isLoop && isDo){
+					cCode += "}while(" + cond1 + cComparator2 + cond2 + ");\n";
+					isLoop = false;
+					isDo = false;
+				}
+					//asm = reader.readLine();
+				}
+				else if(asm.contains("mov dl, ") || asm.contains("mov dl,")){
+					forPrint = asm.substring(asm.indexOf(var)+1);
+					int length = forPrint.length();
+					forPrint = forPrint.substring(forPrint.indexOf(",")+1,length);
+					char temp = forPrint.charAt(0);
+					length = forPrint.length();
+					if(temp == ' ')
+							forPrint = forPrint.substring(forPrint.indexOf(" ")+1, length); 
+					asm = reader.readLine();
+					if(asm.contains("mov bl, 09h") || asm.contains("mov bl, 09") || asm.contains("mov bl, 9")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 02h")||asm.contains("mov ah, 02")||asm.contains("mov ah, 2")){
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%d" + '"' + "," + var + ");\n";
+							}
+						}
+					}
+					if(asm.contains("lea dx")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 09h") || asm.contains("mov ah, 09") || asm.contains("mov ah, 9"))
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%d" + '"' + "," + var + ");\n";
+							}
+						
+					}
+					//asm = reader.readLine();					
+				}else if(asm.contains("end main")){
+					cCode += "\n}";
+					asm = null;
+				}				
+				asm = reader.readLine();
+			}
+			writer.write(cCode);
+			writer.close();
+			}catch(FileNotFoundException e){
+				System.err.println("File unavailable.");
+				asm = new String();
+			}
+		System.out.println(cCode);
+	}
+	
+	public static String fixVar(String var){ //removes tab at the beginning of variable declaration
+		int i = 0;
+		String fixed = "";
+		char tmp = var.charAt(i);
+		int varLength = var.length();
+		for(i = 0; i < varLength; i++)
+		{
+			if(var.charAt(i)!='	')
+				fixed = fixed + var.charAt(i);
+		}
+		return fixed;
+	}
+	
+	public static void main(String[] args) {
+		Disassembler dis = new Disassembler();
+		int choice;
+		Scanner scan = new Scanner(System.in);
+		System.out.println("Enter number of choice:");
+		System.out.println("[1] - Convert Assembly to C");
+		System.out.println("[2] - Convert C to Assembly");
+		choice = scan.nextInt();
+		if(choice == 1){
+			try {
+				assemblyToC();
+			} catch (ClassNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		else if(choice == 2){
+			try {
+				cToAssembly();
+			} catch (ClassNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			};
+		}
+		else System.out.println("HINDI YAN KASAMA SA CHOICES ANO BA");
+	}
+}
