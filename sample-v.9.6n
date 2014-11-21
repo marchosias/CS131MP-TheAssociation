@@ -1,0 +1,34 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int x = 0;
+int y = 1;
+char z = 'a';
+char w[2] = "aa";
+char b[12] = "is the value";
+
+main(){
+if(x == 0){
+printf("Hello World!");
+}else{
+printf("hey");
+}
+
+while(x < y){
+printf("Hello World!");
+printf("hey");
+x++;
+}
+
+do{
+printf("Hello World!");
+printf("hey");
+x++;
+}while(x < y);
+
+for(i = 0; i < 1; i++){
+printf("Hello World!");
+printf("hey");
+}
+}
