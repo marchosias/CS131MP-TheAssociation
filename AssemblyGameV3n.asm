@@ -183,7 +183,7 @@ title AssemblyGame
 			je speedUpbwahahaha
 			jmp samespeed
 			speedUpbwahahaha:
-			mov delaytime, 3
+			mov delaytime, 4
 			samespeed:
 			ret
 		return:
