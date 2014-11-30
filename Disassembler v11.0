@@ -1,0 +1,838 @@
+/** Disassembler v11
+ * @author Jesh
+ * Complete arithmetic operations
+ * Added additional cases (ex. Conversion to asm of a=a*3 is different from a=b*3, see printing)
+ * Cases handled (let operation be ?): a?=3, a?=b, a=a?3, a=a?b, a=b?3, a=b?c
+ * Menu updates:
+ * - Looped menu
+ * - Choice for exiting program
+ * - Added printing of errors (instead of stack trace)
+ */
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Scanner;
+import java.util.StringTokenizer;
+
+public class Disassembler {
+	static String asm, cCode, cFile, asmCodeFull, asmData, asmStack, asmCode, asmMainStart, asmMainContent, asmMainEnd, forPrint, var, val, 
+	type, valueProper, loop, loop2, loopName, counter, cond1, cond2, comparator, cComparator, cComparator2, asmComparator, ifname, elsename, loopname, endloopname = " ", printChar, varName, variable, addVar1, addVar2, subVar1, subVar2, mulVar1, mulVar2, divVar1, divVar2, sum, product, quotient, difference;
+	static boolean isString = false, isWhile = false, isDo = false, ifBool = false, elseBool = false, elseFinisher = false, isLoop = false, incFor = false, decFor = false;
+	static int ctr = 0, stringLength, undeclared = 0, c = 0, d = 0, s = 0, var1, var2, toAdd, toSub, toMul, toDiv;
+	
+	public static void cToAssembly() throws IOException, ClassNotFoundException{
+		try{
+			asmCodeFull = ".model small\n";
+			asmData = ".data\n";
+			asmStack = ".stack 100h\n";
+			asmCode = ".code\n";
+			asmMainStart = "main proc\nmov ax, @data\nmov ds, ax\n;start\n";
+			asmMainEnd = ";end\nmov ax, 4c00h\nint 21h\nmain endp\nend main\n";
+			asmMainContent = ""; //Dito mapupunta yung code na assembly
+			BufferedReader reader = new BufferedReader(new FileReader("toAssembly.c"));
+			FileWriter writer = new FileWriter("assemblyFromC.asm");
+			cFile = reader.readLine();
+			while(cFile != null){
+				if(cFile.contains("int") && !cFile.contains("printf")){
+					asmData += cFile.substring(cFile.indexOf("int")+4, cFile.indexOf("=")-1) + " db " + cFile.substring(cFile.indexOf("=")+2, cFile.indexOf(";")) + "\n";
+				}else if(cFile.contains("char") && cFile.contains("[") && cFile.contains("]")){
+					asmData += cFile.substring(cFile.indexOf("char")+5, cFile.indexOf("[")) + " db '" + cFile.substring(cFile.indexOf("\"")+1, cFile.indexOf(";")-1) + "','$'" + "\n";
+				}else if(cFile.contains("char")){
+					asmData += cFile.substring(cFile.indexOf("char")+5, cFile.indexOf("=")-1) + " db " + cFile.substring(cFile.indexOf("=")+2, cFile.indexOf(";")) + "\n";
+				}else if(cFile.contains("++;")){
+					asmMainContent += "inc " + cFile.substring(0, cFile.indexOf("+")) + "\n";
+				}else if(cFile.contains("if(")){ //if-else converter block starts here
+					ifBool = true;
+					cond1 = cFile.substring(cFile.indexOf("(")+1, cFile.indexOf("(")+2);
+					cond2 = cFile.substring(cFile.indexOf(")")-1, cFile.indexOf(")"));
+					cComparator = cFile.substring(cFile.indexOf(cond1)+2, cFile.indexOf(cond2)-1);
+					if(cComparator.compareToIgnoreCase("==") == 0){
+						asmComparator = "je";
+					}else if(cComparator.compareToIgnoreCase(">") == 0){
+						asmComparator = "jg";
+					}else if(cComparator.compareToIgnoreCase("<") == 0){
+						asmComparator = "jl";
+					}else if(cComparator.compareToIgnoreCase(">=") == 0){
+						asmComparator = "jge";
+					}else if(cComparator.compareToIgnoreCase("<=") == 0){
+						asmComparator = "jle";
+					}
+					
+					asmMainContent += "cmp " + cond1 + ", " + cond2 + "\n";
+					asmMainContent += asmComparator + " if\n";
+					asmMainContent += "jmp else\n\n";
+					asmMainContent += "if:\n";
+				}else if(cFile.contains("else{")){
+					if(cFile.compareToIgnoreCase("}else{") == 0){
+						asmMainContent += "jmp afterelse\n\n";
+						ifBool = false;
+						asmMainContent += "else:\n";
+						elseBool = true;
+					}else{
+						asmMainContent += "else:\n";
+						elseBool = true;
+					}
+				}else if(ifBool && !elseBool && cFile.contains("}")){
+					asmMainContent += "jmp afterelse\n\n";
+					ifBool = false;
+				}else if(!ifBool && elseBool && cFile.contains("}")){
+					asmMainContent += "afterelse:\n\n";
+					elseBool = false;	//if-else converter block ends here
+				}else if(!isDo && cFile.contains("while(")){ //while converter block starts here
+					asmMainContent += "while:\n";
+					cond1 = cFile.substring(cFile.indexOf("(")+1, cFile.indexOf("(")+2);
+					cond2 = cFile.substring(cFile.indexOf(")")-1, cFile.indexOf(")"));
+					cComparator = cFile.substring(cFile.indexOf(cond1)+2, cFile.indexOf(cond2)-1);
+					if(cComparator.compareToIgnoreCase("==") == 0){
+						asmComparator = "je";
+					}else if(cComparator.compareToIgnoreCase(">") == 0){
+						asmComparator = "jg";
+					}else if(cComparator.compareToIgnoreCase("<") == 0){
+						asmComparator = "jl";
+					}else if(cComparator.compareToIgnoreCase(">=") == 0){
+						asmComparator = "jge";
+					}else if(cComparator.compareToIgnoreCase("<=") == 0){
+						asmComparator = "jle";
+					}
+					asmMainContent += "cmp " + cond1 + ", " + cond2 + "\n";
+					asmMainContent += asmComparator + " endwhile\n";
+					isWhile = true;
+				}else if(isWhile && cFile.contains("}")){
+					asmMainContent += "jmp while\n";
+					asmMainContent += "endwhile:\n\n";
+					isWhile = false;	//while converter block ends here
+				}else if(cFile.contains("do{")){ //do-while converter block starts here
+					asmMainContent += "do:\n";
+					isDo = true;
+				}else if(isDo && cFile.contains("while(")){
+					cond1 = cFile.substring(cFile.indexOf("(")+1, cFile.indexOf("(")+2);
+					cond2 = cFile.substring(cFile.indexOf(")")-1, cFile.indexOf(")"));
+					cComparator = cFile.substring(cFile.indexOf(cond1)+2, cFile.indexOf(cond2)-1);
+					if(cComparator.compareToIgnoreCase("==") == 0){
+						asmComparator = "je";
+					}else if(cComparator.compareToIgnoreCase(">") == 0){
+						asmComparator = "jg";
+					}else if(cComparator.compareToIgnoreCase("<") == 0){
+						asmComparator = "jl";
+					}else if(cComparator.compareToIgnoreCase(">=") == 0){
+						asmComparator = "jge";
+					}else if(cComparator.compareToIgnoreCase("<=") == 0){
+						asmComparator = "jle";
+					}
+					asmMainContent += "cmp " + cond1 + ", " + cond2 + "\n";
+					asmMainContent += asmComparator + " do\n\n";
+					isDo = false;	//do-while converter block ends here
+				}else if(cFile.contains("for(") || cFile.contains("for (")){ //for converter block starts here
+					asmMainContent += "for:\n";
+					asmData += cFile.substring(cFile.indexOf("(")+1, cFile.indexOf("(")+2) + " db " + cFile.substring(cFile.indexOf("=")+2, cFile.indexOf("=")+3) + "\n";
+					cond1 = cFile.substring(cFile.indexOf("(")+1, cFile.indexOf("(")+2);
+					cComparator = cFile.substring(cFile.indexOf(cond1, cFile.indexOf(";"))+2);
+					cComparator2 = cComparator.substring(0, cComparator.indexOf(" "));
+					cond2 = cComparator.substring(cComparator.indexOf(" ", cComparator.indexOf(cComparator2))+1, cComparator.indexOf(";"));
+					if(cComparator2.compareToIgnoreCase("==") == 0){
+						asmComparator = "je";
+					}else if(cComparator2.compareToIgnoreCase(">") == 0){
+						asmComparator = "jg";
+					}else if(cComparator2.compareToIgnoreCase("<") == 0){
+						asmComparator = "jl";
+					}else if(cComparator2.compareToIgnoreCase(">=") == 0){
+						asmComparator = "jge";
+					}else if(cComparator2.compareToIgnoreCase("<=") == 0){
+						asmComparator = "jle";
+					}
+					asmMainContent += "cmp " + cond1 + ", " + cond2 + "\n";
+					asmMainContent += asmComparator + " endfor\n";
+					if(cFile.contains(cond1 + "++")){
+						incFor = true;
+					}else if(cFile.contains(cond1 + "--")){
+						decFor = true;
+					}
+				}else if(incFor && !decFor && cFile.contains("}")){
+					asmMainContent += "inc " + cond1 + "\n";
+					asmMainContent += "jmp for\n";
+					asmMainContent += "endfor:\n\n";
+					incFor = false;	//while converter block ends here
+				}else if(decFor && !incFor && cFile.contains("}")){
+					asmMainContent += "dec " + cond1 + "\n";
+					asmMainContent += "jmp for\n";
+					asmMainContent += "endfor:\n\n";
+					decFor = false;	//while converter block ends here
+				}else if(cFile.contains("=") && cFile.contains("+")){ //sum
+					stringLength = cFile.length();
+					if(cFile.contains("+=")){ 
+						if(Character.isDigit(cFile.charAt(stringLength-2))) //a+=3
+						{
+							toAdd = cFile.charAt(stringLength-2);
+							addVar1 = cFile.substring(0, cFile.indexOf("+"));
+							addVar1 = fixVar(addVar1);
+							asmMainContent = "add " + addVar1 + ", " + (toAdd-48) + "\n";
+						}
+						else{ //a+=b
+							addVar1 = cFile.substring(0, cFile.indexOf("+"));
+							addVar2 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf(";"));
+							addVar1 = fixVar(addVar1);
+							addVar2 = fixVar(addVar2);
+							asmMainContent = "mov ax, " + addVar2 + "\n" + "add " + addVar1 + ", ax" + "\n";
+						}
+					}
+					else{
+						if(Character.isDigit(cFile.charAt(stringLength-2))){ 
+							sum = cFile.substring(0, cFile.indexOf("="));
+							addVar1 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf("+"));
+							toAdd = cFile.charAt(stringLength-2);
+							sum = fixVar(sum);
+							addVar1 = fixVar(addVar1);
+							if(sum.equals(addVar1)){
+								asmMainContent = "add " + sum + ", " + (toAdd-48) + "\n"; //a=a+3
+							}
+							else{ //a=b+3
+								asmMainContent = "add " + addVar1 + ", " + (toAdd-48) + "\n" + "mov ax, " + addVar1  + "\n" + "add " + sum + ", ax" + "\n";
+							}
+						}
+						else{ 
+							sum = cFile.substring(0, cFile.indexOf("="));
+							addVar1 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf("+"));
+							addVar2 = cFile.substring(cFile.indexOf("+")+1, cFile.indexOf(";"));
+							sum = fixVar(sum);
+							addVar1 = fixVar(addVar1);
+							addVar2 = fixVar(addVar2);
+							if(sum.equals(addVar1)){ //a=a+b
+								asmMainContent = "mov ax, " + addVar2 + "\n" + "add " + sum + ", ax" + "\n";
+							}
+							else if(sum.equals(addVar2)){ //a=b+a
+								asmMainContent = "mov ax, " + addVar1 + "\n" + "add " + sum + ", ax" + "\n";
+							}
+							else{ //a=b+c
+								asmMainContent = "mov ax, " + addVar2 + "\n" + "add " + addVar1 + ", ax" + "\n" + "mov " + sum + ", " + addVar1 + "\n";
+							}
+							
+						}
+					}
+				}else if(cFile.contains("=") && cFile.contains("-")){
+					stringLength = cFile.length();
+					if(cFile.contains("-=")){
+						if(Character.isDigit(cFile.charAt(stringLength-2))) //a-=3
+						{
+							toSub = cFile.charAt(stringLength-2);
+							subVar1 = cFile.substring(0, cFile.indexOf("-"));
+							subVar1 = fixVar(subVar1);
+							asmMainContent = "sub " + subVar1 + ", " + (toSub-48) + "\n";
+						}
+						else{ //a-=b
+							subVar1 = cFile.substring(0, cFile.indexOf("-"));
+							subVar2 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf(";"));
+							subVar1 = fixVar(subVar1);
+							subVar2 = fixVar(subVar2);
+							asmMainContent = "mov ax, " + subVar2 + "\n" + "sub " + subVar1 + ", ax" + "\n";
+						}
+					}
+					else{
+						if(Character.isDigit(cFile.charAt(stringLength-2))){
+							difference = cFile.substring(0, cFile.indexOf("="));
+							subVar1 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf("-"));
+							toSub = cFile.charAt(stringLength-2);
+							difference = fixVar(difference);
+							subVar1 = fixVar(subVar1);
+							if(difference.equals(subVar1)){ //a=a-3
+								asmMainContent = "sub " + difference + ", " + (toSub-48) + "\n";
+							}
+							else{ //a=b-3
+								asmMainContent = "sub " + subVar1 + ", " + (toSub-48) + "\n" + "mov ax, " + subVar1  + "\n" + "sub " + difference + ", ax" + "\n";
+							}
+						}
+						else{ 
+							difference = cFile.substring(0, cFile.indexOf("="));
+							subVar1 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf("-"));
+							subVar2 = cFile.substring(cFile.indexOf("-")+1, cFile.indexOf(";"));
+							difference = fixVar(difference);
+							subVar1 = fixVar(subVar1);
+							subVar2 = fixVar(subVar2);
+							if(difference.equals(subVar1)){//a=a-b
+								asmMainContent = "mov ax, " + subVar2 + "\n" + "sub " + difference + ", ax" + "\n";
+							}
+							else{//a=b-c
+								asmMainContent = "mov ax, " + subVar2 + "\n" + "sub " + subVar1 + ", ax" + "\n" + "mov " + difference + ", " + subVar1 + "\n";
+							}
+						}
+					}
+				}else if(cFile.contains("=") && cFile.contains("*")){
+					stringLength = cFile.length();
+					if(cFile.contains("*=")){
+						if(Character.isDigit(cFile.charAt(stringLength-2))) //a*=3
+						{
+							toMul = cFile.charAt(stringLength-2);
+							mulVar1 = cFile.substring(0, cFile.indexOf("*"));
+							mulVar1 = fixVar(mulVar1);
+							asmMainContent = "mov ax, " + (toMul-48) + "\n" + "mul " + mulVar1 + "\n";
+						}
+						else{ //a*=b
+							mulVar1 = cFile.substring(0, cFile.indexOf("*"));
+							mulVar2 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf(";"));
+							mulVar1 = fixVar(mulVar1);
+							mulVar2 = fixVar(mulVar2);
+							asmMainContent = "mov ax, " + mulVar2 + "\n" + "mul " + mulVar1 + "\n";
+						}
+					}else{
+						if(Character.isDigit(cFile.charAt(stringLength-2))){ 
+							product = cFile.substring(0, cFile.indexOf("="));
+							mulVar1 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf("*"));
+							toMul = cFile.charAt(stringLength-2);
+							product = fixVar(product);
+							mulVar1 = fixVar(mulVar1);
+							if(product.equals(mulVar1)){ //a=a*3
+								asmMainContent = "mov ax, " + (toMul-48) + "\n" + "mul " + mulVar1 + "\n";
+							}
+							else{ //a=b*3
+								asmMainContent = "mov ax, " + (toMul-48) + "\n" + "mul " + mulVar1 + "\n" + "mov " + product + ", " + mulVar1 + "\n";
+							}
+						}
+						else{ 
+							product = cFile.substring(0, cFile.indexOf("="));
+							mulVar1 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf("*"));
+							mulVar2 = cFile.substring(cFile.indexOf("*")+1, cFile.indexOf(";"));
+							product = fixVar(product);
+							mulVar1 = fixVar(mulVar1);
+							mulVar2 = fixVar(mulVar2);
+							if(product.equals(mulVar1)){ //a=a*b
+								asmMainContent = "mov ax, " + mulVar2 + "\n" + "mul " + product + "\n";
+							}
+							else{ //a=b*c
+								asmMainContent = "mov ax, " + mulVar2 + "\n" + "mul " + mulVar1 + ", ax" + "\n" + "mov " + product + ", " + mulVar1 + "\n";
+							}
+					}
+				}
+				}else if(cFile.contains("=") && cFile.contains("/")){
+					stringLength = cFile.length();
+					if(cFile.contains("/=")){
+						if(Character.isDigit(cFile.charAt(stringLength-2))) //a/=3
+						{
+							toDiv = cFile.charAt(stringLength-2);
+							divVar1 = cFile.substring(0, cFile.indexOf("/"));
+							divVar1 = fixVar(divVar1);
+							asmMainContent = "mov ax, " + divVar1 + "\n" + "mov bl, " + (toDiv-48) + "\n" + "div bl" + "\n" + "mov " + divVar1 + ", al" + "\n";
+						}
+						else{ //a/=b
+							divVar1 = cFile.substring(0, cFile.indexOf("/"));
+							divVar2 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf(";"));
+							divVar1 = fixVar(divVar1);
+							divVar2 = fixVar(divVar2);
+							asmMainContent = "mov ax, " + divVar1 + "\n" + "mov bl, " + divVar2 + "\n" + "div bl" + "\n" + "mov " + divVar1 + ", al" + "\n";
+						}
+					}
+					else{
+						if(Character.isDigit(cFile.charAt(stringLength-2))){ //a=a/3
+							quotient = cFile.substring(0, cFile.indexOf("="));
+							divVar1 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf("/"));
+							toDiv = cFile.charAt(stringLength-2);
+							quotient = fixVar(quotient);
+							divVar1 = fixVar(divVar1);
+							asmMainContent = "mov ax, " + divVar1 + "\n" + "mov bl, " + (toDiv-48) + "\n" + "div bl" + "\n" + "mov " + quotient + ", al" + "\n";
+						}
+						else{ //a=a/b
+							quotient = cFile.substring(0, cFile.indexOf("="));
+							divVar1 = cFile.substring(cFile.indexOf("=")+1, cFile.indexOf("/"));
+							divVar2 = cFile.substring(cFile.indexOf("/")+1, cFile.indexOf(";"));
+							quotient = fixVar(quotient);
+							divVar1 = fixVar(divVar1);
+							divVar2 = fixVar(divVar2);
+								asmMainContent = "mov ax, " + divVar1 + "\n" + "mov bl, " + divVar2 + "\n" + "div bl\n" + "mov " + quotient + ", al" + "\n";
+					}
+					}
+				}else if(cFile.contains("printf")){
+					printChar = cFile.substring(cFile.indexOf("(")+2, cFile.indexOf(")")-1);
+					if(printChar.length() > 1 && (!cFile.contains("%d") && !cFile.contains("%c") && !cFile.contains("%s")) ){
+						asmData += "message" + undeclared +  " db '" + printChar + "', '$'\n";
+						asmMainContent += "mov dx, offset message" + undeclared + "\n";
+						asmMainContent += "mov ah, 09h\n";
+						asmMainContent += "int 21h\n";
+						undeclared++;
+					}else if(printChar.length() == 1){
+						asmMainContent += "mov dl, '" + printChar + "'\n";
+						asmMainContent += "mov ah, 02h\n";
+						asmMainContent += "int 21h\n";
+					}else if(cFile.contains("%d") || cFile.contains("%c") || cFile.contains("%s")){
+						printChar = cFile.substring(cFile.indexOf("\"")+1, cFile.indexOf(",")- 1);
+						varName = cFile.substring(cFile.indexOf(","), cFile.indexOf(")"));						
+						
+						String print = "";
+						StringTokenizer token = new StringTokenizer(varName, ", ");
+						int x = 0;
+						while(x < printChar.length()){
+							if(printChar.charAt(x) != '%'){
+								print += printChar.charAt(x);
+								x++;
+							}else{
+								if(print != ""){
+								asmData += "message" + undeclared +  " db '" + print + "', '$'\n";
+								asmMainContent += "mov dx, offset message" + undeclared + "\n";
+								asmMainContent += "mov ah, 09h\n";
+								asmMainContent += "int 21h\n";
+								undeclared++;
+								print = "";
+								}
+								if(printChar.charAt(x+1) == 'd'){
+									String var1 = token.nextToken();
+									asmMainContent += "add " + var1 + ", 48\n";
+									asmMainContent += "mov dl, " + var1 + "\n";
+									asmMainContent += "mov ah, 02h\n";
+									asmMainContent += "int 21h\n";
+									x = x+2;
+								}else if(printChar.charAt(x+1) == 's'){
+									String var1 = token.nextToken();
+									asmMainContent += "mov dx, offset " + var1 + "\n";
+									asmMainContent += "mov ah, 09h\n";
+									asmMainContent += "int 21h\n";
+									x = x+2;
+								}else if(printChar.charAt(x+1) == 'c'){
+									String var1 = token.nextToken();
+									asmMainContent += "mov dl, " + var1 + "\n";
+									asmMainContent += "mov ah, 02h\n";
+									asmMainContent += "int 21h\n";
+									x = x+2;
+								}
+							}
+						}
+						if(print != ""){
+							asmData += "message" + undeclared +  " db '" + print + "', '$'\n";
+							asmMainContent += "mov dx, offset message" + undeclared + "\n";
+							asmMainContent += "mov ah, 09h\n";
+							asmMainContent += "int 21h\n";
+							undeclared++;
+							print = "";
+						}
+						
+					}
+				}
+				
+				
+				
+				cFile = reader.readLine();
+			}
+			
+			writer.write(asmCodeFull);
+			writer.write(asmData);
+			writer.write(asmStack);
+			writer.write(asmCode);
+			writer.write(asmMainStart);
+			writer.write(asmMainContent);
+			writer.write(asmMainEnd);
+			writer.close();
+			System.out.println("File converted successfully!");
+			//System.out.println(asmCodeFull + asmData + asmStack + asmCode + asmMainStart + asmMainContent + asmMainEnd);
+		}catch(FileNotFoundException e){
+			System.err.println("File Not Found!");
+		}
+	}
+	
+	public static void assemblyToC()  throws IOException, ClassNotFoundException{
+		try{
+			cCode = "#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n";
+			BufferedReader reader = new BufferedReader(new FileReader("sample.asm"));
+			FileWriter writer = new FileWriter("sample.c");
+			asm = reader.readLine();
+			while(asm != null){
+				 if(asm.contains(".data")){
+					 asm = reader.readLine();
+					 while(!asm.contains(".stack")){ //naghahanap lang sya ng variables inside .data. Pag naencounter na yung .stack stop na ituuu
+						 if(asm.contains("db")||asm.contains("dw")||asm.contains("dd")){
+							 var = asm.substring(asm.indexOf(0)+1);
+							 var = fixVar(var);
+							 type = "int";
+							 if(asm.contains("db")){
+								 var = var.substring(0,var.indexOf(" db"));
+								 val = asm.substring(asm.indexOf(" db")+4);
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								 if(valueProper.contains("'")){
+									 	if(valueProper.startsWith("\""))
+									 	{
+									 		type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+									 	}
+									 	else if(valueProper.contains("'$'")){
+										valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+									    }else{
+									    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+									    }
+									    if(valueProper.length() == 0){
+											type = "char";
+								 }}
+								 
+								 
+							 }else if(asm.contains("dw")){
+								 var = var.substring(0,var.indexOf(" dw"));
+								 val = asm.substring(asm.indexOf(" dw")+4);
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								 if(valueProper.contains("'")){
+									 	if(valueProper.contains("'$'")){
+											valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+										    }else{
+										    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+										    }
+										if(valueProper.length() == 0){
+											type = "char";
+									
+										}else{
+											type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+										}
+								 }
+								 
+							 }else if(asm.contains("dd")){
+								 var = var.substring(0,var.indexOf(" dd"));
+								 val = asm.substring(asm.indexOf(" dd")+4);		
+								 if(val.equals("?"))
+									 val = "0";
+								 valueProper = val;
+								 if(valueProper.contains("'")){
+									 if(valueProper.contains("'$'")){
+											valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("',"));
+										    }else{
+										    valueProper = valueProper.substring(valueProper.indexOf("'")+1, valueProper.indexOf("'")+1);
+										    }
+										if(valueProper.length() == 0){
+											type = "char";
+											
+										}else{
+											type = "char";
+											isString = true;
+											val = valueProper;
+											stringLength = valueProper.length();
+										}
+								 }
+							 }
+						 }
+						 
+						 if(isString){
+							 if(val.contains("\"")){
+							 val = val.substring(val.indexOf("\""), (val.indexOf(",")-1));
+							 }
+							 stringLength = val.length();
+							 cCode += type + " " + var + "[" + stringLength + "]" + " = " + val + "\";\n";
+							 isString = false;
+						 }else{
+							 cCode += type + " " + var + " = " + val + ";\n"; 
+						 }
+						asm = reader.readLine();
+					 }					 
+				}else if(asm.contains("main proc")||asm.contains("main	proc")){
+					cCode += "main(){\n\n";
+					//asm = reader.readLine();
+				}else if(asm.contains("inc")){
+					cCode += asm.substring(asm.indexOf("c")+2) + "++;\n";
+					//asm = reader.readLine();
+				}else if(asm.contains(":") && !ifBool && !elseBool && !asm.contains(";@") && !asm.contains("afterelse")){
+					loopname = fixVar(asm.substring(0, asm.indexOf(":")));
+					if(loopname.compareToIgnoreCase(endloopname) != 0){
+					reader.mark(0);
+					while(!asm.contains("cmp")){
+						asm = reader.readLine();
+					}
+					cond1 = asm.substring(asm.indexOf(" ", 3)+1, asm.indexOf(","));
+					cond2 = asm.substring(asm.indexOf(",")+2);
+					loop = reader.readLine();
+					if(loop.contains("je")||loop.contains("jg")||loop.contains("jl")||loop.contains("jle")||loop.contains("jge")){
+						comparator = loop.substring(0, loop.indexOf(" "));
+						comparator = fixVar(comparator);
+						if(comparator.compareToIgnoreCase("je") == 0){
+							cComparator = " == ";
+						}else if(comparator.compareToIgnoreCase("jl") == 0){
+							cComparator = " > ";
+							cComparator2 = " < ";
+						}else if(comparator.compareToIgnoreCase("jg") == 0){
+							cComparator = " < ";
+							cComparator2 = " > ";
+						}else if(comparator.compareToIgnoreCase("jge") == 0){
+							cComparator = " <= ";
+							cComparator2 = " >= ";
+						}else if(comparator.compareToIgnoreCase("jle") == 0){
+							cComparator = " >= ";
+							cComparator2 = " <= ";
+						}
+						
+						if(loop.substring(loop.indexOf(" ")+1).compareTo(loopname) == 0){
+							cCode += "do{\n";
+							isDo = true;
+						}
+					}
+					isLoop = true;
+					while(!asm.contains("jmp")){
+						asm = reader.readLine();
+					}
+					if(asm.contains(loopname)){
+						cCode += "while(" + cond1 + cComparator + cond2 +"){\n";
+						isWhile = true;
+						asm = reader.readLine();
+						asm = fixVar(asm);
+						endloopname = asm.substring(0, asm.indexOf(":"));
+					}
+					reader.reset();
+					}
+				}else if(asm.contains("cmp")){
+					if(isLoop && isDo){
+						cCode += "}while(" + cond1 + cComparator2 + cond2 + ");\n";
+						isLoop = false;
+						isDo = false;
+					}else{
+					cond1 = asm.substring(asm.indexOf(" ", 3)+1, asm.indexOf(","));
+					cond2 = asm.substring(asm.indexOf(",")+2);
+					reader.mark(0);
+					loop = reader.readLine();
+					ifname = loop.substring(loop.indexOf(" ")+1);
+					if(ifname.compareToIgnoreCase(endloopname) != 0){
+					if(loop.contains("je")||loop.contains("jg")||loop.contains("jl")||loop.contains("jle")||loop.contains("jge")){
+						comparator = loop.substring(0, loop.indexOf(" "));
+						comparator = fixVar(comparator);
+						if(comparator.compareToIgnoreCase("je") == 0){
+							cComparator = " == ";
+						}else if(comparator.compareToIgnoreCase("jg") == 0){
+							cComparator = " > ";
+						}else if(comparator.compareToIgnoreCase("jl") == 0){
+							cComparator = " < ";
+						}else if(comparator.compareToIgnoreCase("jle") == 0){
+							cComparator = " <= ";
+						}else if(comparator.compareToIgnoreCase("jge") == 0){
+							cComparator = " >= ";
+						}
+						
+						ifBool = true;
+					}
+					loop2 = reader.readLine();
+					if(loop2.contains("jmp")){
+						elsename = loop2.substring(loop2.indexOf(" ")+1);
+						elseBool = true;
+					}
+					}
+					reader.reset();
+					}
+				}else if(ifBool && elseBool && asm.contains(":")){
+					if(asm.contains(ifname)){
+						cCode += "if(" + cond1 + cComparator + cond2 + "){\n";
+						ifBool = false;
+					}
+				}else if(elseBool && asm.contains(":")){
+					if(asm.contains(elsename)){
+						cCode += "}else{\n";
+						elseBool = false;
+						elseFinisher = true;
+					}
+				}
+				else if(asm.contains("lea dx")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 09h") || asm.contains("mov ah, 09") || asm.contains("mov ah, 9"))
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%s" + '"' + "," + var + ");\n";
+							}
+						
+					}
+				else if(asm.contains("mov dl,'")||asm.contains("mov dl, '")){
+					forPrint = asm.substring(asm.indexOf("'")+1);
+					forPrint = forPrint.substring(0,forPrint.indexOf("'"));
+					asm = reader.readLine();
+					if(asm.contains("mov ah, 02h")||asm.contains("mov ah, 02")||asm.contains("mov ah, 2")){
+						asm = reader.readLine();
+						if(asm.contains("int 21h")){
+							cCode += "printf(" + '"' + forPrint + '"' + ");\n";
+						}
+					}
+					if(asm.contains("lea dx")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 09h") || asm.contains("mov ah, 09") || asm.contains("mov ah, 9"))
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%d" + '"' + "," + var + ");\n";
+							}
+						
+					}
+				if(elseFinisher){
+					cCode += "}\n";
+					elseFinisher = false;
+				}else
+				if(isLoop && isWhile){
+					cCode += "}\n";
+					isLoop = false;
+					isWhile = false;
+				}else
+				if(isLoop && isDo){
+					cCode += "}while(" + cond1 + cComparator2 + cond2 + ");\n";
+					isLoop = false;
+					isDo = false;
+				}
+					//asm = reader.readLine();
+				}
+				else if(asm.contains("mov dl, ") || asm.contains("mov dl,")){
+					forPrint = asm.substring(asm.indexOf(var)+1);
+					int length = forPrint.length();
+					forPrint = forPrint.substring(forPrint.indexOf(",")+1,length);
+					char temp = forPrint.charAt(0);
+					length = forPrint.length();
+					if(temp == ' ')
+							forPrint = forPrint.substring(forPrint.indexOf(" ")+1, length); 
+					asm = reader.readLine();
+					if(asm.contains("mov bl, 09h") || asm.contains("mov bl, 09") || asm.contains("mov bl, 9")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 02h")||asm.contains("mov ah, 02")||asm.contains("mov ah, 2")){
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%d" + '"' + "," + var + ");\n";
+							}
+						}
+					}
+					if(asm.contains("lea dx")){
+						asm = reader.readLine();
+						if(asm.contains("mov ah, 09h") || asm.contains("mov ah, 09") || asm.contains("mov ah, 9"))
+							asm = reader.readLine();
+							if(asm.contains("int 21h")){
+								cCode += "printf(" + '"' + "%d" + '"' + "," + var + ");\n";
+							}
+						
+					}
+					//asm = reader.readLine();					
+				}else if(asm.contains("add")){
+					cCode += asm.substring(asm.indexOf("add") + 4, asm.indexOf(",")) + " += " + asm.substring(asm.indexOf(",")+1, asm.indexOf(";"));
+				}else if(asm.contains("sub")){
+					cCode += asm.substring(asm.indexOf("add") + 4, asm.indexOf(",")) + " -= " + asm.substring(asm.indexOf(",")+1, asm.indexOf(";"));
+				}else if(asm.contains("mov al,") || asm.contains("mov bl,") || asm.contains("mov cl,")){
+					String possibleVar = asm.substring(asm.indexOf(",")+2, asm.length());
+					asm = reader.readLine();
+					if(asm.contains("add") && (asm.contains("al") || asm.contains("bl") || asm.contains("cl"))){
+						cCode += asm.substring(asm.indexOf("add") + 4, asm.indexOf(",")) + " += " + possibleVar + ";\n";					
+					}else if(asm.contains("sub") && (asm.contains("al") || asm.contains("bl") || asm.contains("cl"))){
+						cCode += asm.substring(asm.indexOf("sub") + 4, asm.indexOf(",")) + " -= " + possibleVar + ";\n";							
+					}else{
+						reader.reset();
+						asm = reader.readLine();
+						possibleVar = asm.substring(asm.indexOf(",") + 2, asm.length());
+						asm = reader.readLine();
+						String possibleVar2 = asm.substring(asm.indexOf(",")+2, asm.length());
+						reader.mark(0);
+						asm = reader.readLine();
+						if(asm.contains("mul") && (asm.contains("bl") || asm.contains("cl"))){
+							asm = reader.readLine();
+							if(asm.contains("mov") && asm.contains(possibleVar)){
+								cCode += possibleVar + " *= " + possibleVar2 + ";\n";
+							}else if(asm.contains("mov")){
+								cCode += asm.substring(asm.indexOf("mov") + 4, asm.indexOf(",")) + " = " + possibleVar + " * " + possibleVar2 + ";\n";
+							}else{
+								reader.reset();
+							}
+						}else{
+							reader.reset();
+						}
+					}				
+				}else if(asm.contains("mov ax,") || asm.contains("mov bx,") || asm.contains("mov cx,")){
+					String possibleVar = asm.substring(asm.indexOf(",")+2, asm.length());
+					asm = reader.readLine();
+					if(asm.contains("add") && (asm.contains("ax") || asm.contains("bx") || asm.contains("cx"))){
+						cCode += asm.substring(asm.indexOf("add") + 4, asm.indexOf(",")) + " += " + possibleVar + ";\n";					
+					}else if(asm.contains("sub") && (asm.contains("ax") || asm.contains("bx") || asm.contains("cx"))){
+						cCode += asm.substring(asm.indexOf("sub") + 4, asm.indexOf(",")) + " -= " + possibleVar + ";\n";							
+					}else{
+						reader.reset();
+						asm = reader.readLine();
+						possibleVar = asm.substring(asm.indexOf(",") + 2, asm.length());
+						asm = reader.readLine();
+						String possibleVar2 = asm.substring(asm.indexOf(",")+2, asm.length());
+						reader.mark(0);
+						asm = reader.readLine();
+						if(asm.contains("div") && (asm.contains("bx") || asm.contains("cx"))){
+							asm = reader.readLine();
+							if(asm.contains("mov") && asm.contains(possibleVar)){
+								cCode += possibleVar + " /= " + possibleVar2 + ";\n";
+							}else if(asm.contains("mov")){
+								cCode += asm.substring(asm.indexOf("mov") + 4, asm.indexOf(",")) + " = " + possibleVar + " / " + possibleVar2 + ";\n";
+							}else{
+								reader.reset();
+							}
+						}else{
+							reader.reset();
+						}
+					}				
+				}else if(asm.contains("end main")){
+					cCode += "\n}";
+					asm = null;
+				}
+				reader.mark(0);
+				asm = reader.readLine();
+			}
+			writer.write(cCode);
+			writer.close();
+			}catch(FileNotFoundException e){
+				System.err.println("File unavailable.");
+				asm = new String();
+			}
+		System.out.println(cCode);
+	}
+	
+	public static String fixVar(String var){ //removes tabs and spaces in variable name
+		int i = 0;
+		String fixed = "";
+		char tmp = var.charAt(i);
+		int varLength = var.length();
+		for(i = 0; i < varLength; i++)
+		{
+			if(var.charAt(i)!='	')
+				fixed = fixed + var.charAt(i);
+		}
+		varLength = fixed.length();
+		tmp = fixed.charAt(varLength-1);
+		if(tmp == ' '){
+			fixed = fixed.substring(0, varLength-1);
+		}
+		tmp = fixed.charAt(0);
+		varLength = fixed.length();
+		if(tmp == ' '){
+			fixed = fixed.substring(1, varLength);
+		}
+		
+		return fixed;
+	}
+	
+	public static void main(String[] args) {
+		Disassembler dis = new Disassembler();
+		int choice = 0;
+		Scanner scan = new Scanner(System.in);
+		while(choice!=3){
+			choice = 0;
+			System.out.println("\nEnter number of choice:");
+			System.out.println("[1] - Convert Assembly to C");
+			System.out.println("[2] - Convert C to Assembly");
+			System.out.println("[3] - Exit program");
+			choice = scan.nextInt();
+			if(choice == 1){
+				try {
+					assemblyToC();
+				} catch (ClassNotFoundException e) {
+					System.err.println("Oops. Something went wrong.");
+				} catch (IOException e) {
+					System.err.println("Oops. Something went wrong.");
+				}
+			}
+			else if(choice == 2){
+				try {
+					cToAssembly();
+				} catch (ClassNotFoundException e) {
+					System.err.println("Oops. Something went wrong.");
+				} catch (IOException e) {
+					System.err.println("Oops. Something went wrong.");
+				};
+			}
+			else if(choice == 3){
+				System.out.println("\nYou chose to exit the program.\n");
+				System.exit(0);
+			}
+			else System.out.println("\nSorry, your input does not correspond to any of the choices. \nPlease try again.\n");
+		}
+	}
+}
